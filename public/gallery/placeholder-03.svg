@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1100" role="img" aria-labelledby="title">
+  <title id="title">Minimal sculptural beauty detail</title>
+  <rect width="900" height="1100" fill="#564036"/>
+  <path d="M0 0h900v294C713 414 554 400 408 309 281 230 151 213 0 274z" fill="#b6987f"/>
+  <path d="M0 840c176-120 337-114 489-21 156 96 277 99 411-11v292H0z" fill="#f4eee9"/>
+  <circle cx="496" cy="548" r="178" fill="#ded1c6"/>
+  <circle cx="496" cy="548" r="120" fill="#fcfaf8" opacity=".52"/>
+</svg>

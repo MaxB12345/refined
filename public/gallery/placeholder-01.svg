@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1100" role="img" aria-labelledby="title">
+  <title id="title">Soft neutral beauty studio detail</title>
+  <rect width="900" height="1100" fill="#f4eee9"/>
+  <circle cx="710" cy="250" r="180" fill="#ded1c6"/>
+  <path d="M0 790c176-110 274-120 438-38 143 72 266 57 462-84v432H0z" fill="#b6987f"/>
+  <path d="M150 760c104-170 250-244 381-164 97 59 142 177 158 302H150z" fill="#564036" opacity=".88"/>
+  <circle cx="313" cy="489" r="106" fill="#fcfaf8" opacity=".7"/>
+</svg>

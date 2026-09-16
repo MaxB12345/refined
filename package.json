@@ -1,0 +1,37 @@
+{
+  "name": "refined",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "build:cloudflare": "opennextjs-cloudflare build",
+    "deploy:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "preview:cloudflare": "opennextjs-cloudflare build && wrangler dev",
+    "start": "next start",
+    "check": "npm run lint && npm run typecheck && npm run build",
+    "check:cloudflare": "npm run check && npm run build:cloudflare && wrangler deploy --dry-run",
+    "deploy:supabase": "npx supabase@latest db push && npx supabase@latest functions deploy public-api && npx supabase@latest functions deploy customer-api && npx supabase@latest functions deploy admin-api",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.116.0",
+    "next": "16.3.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.6",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "wrangler": "^4.131.2"
+  }
+}

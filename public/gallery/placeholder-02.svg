@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1100" role="img" aria-labelledby="title">
+  <title id="title">Warm taupe beauty treatment detail</title>
+  <rect width="900" height="1100" fill="#ded1c6"/>
+  <rect x="92" y="100" width="716" height="900" rx="358" fill="#b6987f"/>
+  <path d="M92 679c154-83 252-63 374 18 122 81 220 102 342 27v276H92z" fill="#564036"/>
+  <circle cx="450" cy="385" r="126" fill="#f4eee9" opacity=".78"/>
+  <path d="M265 433c86-122 264-122 370 0" fill="none" stroke="#fcfaf8" stroke-width="18" opacity=".7"/>
+</svg>
