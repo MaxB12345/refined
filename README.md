@@ -5,7 +5,7 @@ Supabase, and Cloudflare Workers.
 
 ## Local development
 
-Use Node.js 20.9 or newer.
+Use Node.js 22 or newer (required by wrangler for Cloudflare builds/deploys).
 
 ```bash
 npm install
