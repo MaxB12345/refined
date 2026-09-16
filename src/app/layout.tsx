@@ -16,7 +16,7 @@ const displayFont = Playfair_Display({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://sculptedbyruby.example",
+    process.env.NEXT_PUBLIC_SITE_URL || "https://sculptedbyruby.example",
   ),
   title: {
     default: "Sculpted by Ruby | Beauty, thoughtfully tailored",

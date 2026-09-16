@@ -22,7 +22,7 @@ export function getPublicEnvironment(): PublicEnvironment {
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
     ),
-    siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "https://sculptedbyruby.example",
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://sculptedbyruby.example",
   };
 }
 
