@@ -27,13 +27,19 @@ jobs:
 
       - run: npm ci
 
-      # Mirrors `npm run deploy:cloudflare` from the README: builds with OpenNext then
-      # deploys via wrangler. Wrangler picks up CLOUDFLARE_API_TOKEN / _ACCOUNT_ID automatically.
-      - run: npm run deploy:cloudflare
+      - run: npx opennextjs-cloudflare build
         env:
           NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+
+      # `opennextjs-cloudflare deploy` (used by `npm run deploy:cloudflare`) also tries to
+      # pre-populate the R2 incremental cache through a temporary Worker tunnel before
+      # deploying. That tunnel has been unreliable from GitHub-hosted runners (requests
+      # time out and retry indefinitely). The cache fills itself on real requests, so in CI
+      # we skip that step and deploy directly with wrangler instead.
+      - run: npx wrangler deploy
+        env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
