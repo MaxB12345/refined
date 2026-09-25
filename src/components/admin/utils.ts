@@ -1,30 +1,14 @@
 import type { AdminAppointment, getAdminDashboardData } from "@/lib/admin-api";
 import { londonDateInput } from "@/lib/date-format";
 
+export { addDays, formatDay, startOfWeek, weekdayOf } from "@/lib/date-format";
+
 export type DashboardData = Awaited<ReturnType<typeof getAdminDashboardData>>;
 export type Refresh = () => Promise<void>;
 
 /** Monday-first, matching how the week reads in the UK. */
 export const weekOrder = [1, 2, 3, 4, 5, 6, 0];
 export const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-export function addDays(day: string, amount: number) {
-  const date = new Date(`${day}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + amount);
-  return date.toISOString().slice(0, 10);
-}
-
-export function weekdayOf(day: string) {
-  return new Date(`${day}T12:00:00Z`).getUTCDay();
-}
-
-export function startOfWeek(day: string) {
-  return addDays(day, -((weekdayOf(day) + 6) % 7));
-}
-
-export function formatDay(day: string, options: Intl.DateTimeFormatOptions = { weekday: "long", day: "numeric", month: "long" }) {
-  return new Intl.DateTimeFormat("en-GB", { ...options, timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
-}
 
 export function hhmm(value: string) {
   return value.slice(0, 5);

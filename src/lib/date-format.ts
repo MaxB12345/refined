@@ -41,3 +41,23 @@ export function formatPrice(pricePence: number) {
     minimumFractionDigits: 0,
   }).format(pricePence / 100);
 }
+
+/** Calendar-day arithmetic on "YYYY-MM-DD" strings, independent of the browser's time zone. */
+export function addDays(day: string, amount: number) {
+  const date = new Date(`${day}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + amount);
+  return date.toISOString().slice(0, 10);
+}
+
+export function weekdayOf(day: string) {
+  return new Date(`${day}T12:00:00Z`).getUTCDay();
+}
+
+/** Monday of the week containing `day`. */
+export function startOfWeek(day: string) {
+  return addDays(day, -((weekdayOf(day) + 6) % 7));
+}
+
+export function formatDay(day: string, options: Intl.DateTimeFormatOptions = { weekday: "long", day: "numeric", month: "long" }) {
+  return new Intl.DateTimeFormat("en-GB", { ...options, timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
+}

@@ -3,18 +3,15 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
-import { createBooking, fetchAvailability, type AvailabilitySlot } from "@/lib/booking-api";
+import { AvailabilityPicker } from "@/components/availability-picker";
+import { createBooking, type AvailabilitySlot } from "@/lib/booking-api";
 import { londonTimeInput } from "@/lib/date-format";
 import type { PublicTreatment } from "@/lib/public-content";
-import { SlotSkeleton, Spinner } from "@/components/ui/loading";
+import { Spinner } from "@/components/ui/loading";
 
 type BookingWizardProps = {
   treatments: PublicTreatment[];
 };
-
-function londonToday() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date());
-}
 
 function londonTime(value: string) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -48,20 +45,16 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
   const [treatmentId, setTreatmentId] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
-  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const availabilityRequest = useRef<AbortController | null>(null);
+  // Bumped to reload availability from scratch, e.g. after someone else takes the chosen time.
+  const [availabilityVersion, setAvailabilityVersion] = useState(0);
   const wizardTop = useRef<HTMLDivElement>(null);
 
   const selectedTreatment = treatments.find((treatment) => treatment.id === treatmentId);
-  const minimumDate = londonToday();
-
-  useEffect(() => () => availabilityRequest.current?.abort(), []);
 
   useEffect(() => {
     // On narrow screens the step controls sit far below the next step's heading.
@@ -71,48 +64,19 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
     }
   }, [step]);
 
-  function loadSlots(id: string, date: string) {
-    availabilityRequest.current?.abort();
-    if (!id || !date) {
-      setLoadingSlots(false);
-      setSlots([]);
-      return;
-    }
-
-    const controller = new AbortController();
-    availabilityRequest.current = controller;
-    setLoadingSlots(true);
-    setSlots([]);
-    setSelectedSlot(null);
-    setError("");
-
-    fetchAvailability(id, date)
-      .then((response) => {
-        if (!controller.signal.aborted) setSlots(response.slots);
-      })
-      .catch((requestError: unknown) => {
-        if (!controller.signal.aborted) {
-          setSlots([]);
-          setError(requestError instanceof Error ? requestError.message : "Availability could not be loaded");
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoadingSlots(false);
-      });
-  }
-
   function chooseTreatment(id: string) {
+    if (id !== treatmentId) {
+      setSelectedDate("");
+      setSelectedSlot(null);
+    }
     setTreatmentId(id);
-    setSelectedSlot(null);
     setError("");
-    loadSlots(id, selectedDate);
   }
 
-  function chooseDate(value: string) {
-    setSelectedDate(value);
-    setSelectedSlot(null);
+  function chooseTime(date: string, slot: AvailabilitySlot | null) {
+    setSelectedDate(date);
+    setSelectedSlot(slot);
     setError("");
-    loadSlots(treatmentId, value);
   }
 
   function continueToDate() {
@@ -122,7 +86,7 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
   }
 
   function continueToDetails() {
-    if (!selectedDate || !selectedSlot) return setError("Choose a date and available time to continue.");
+    if (!selectedDate || !selectedSlot) return setError("Choose one of the available times to continue.");
     setError("");
     setStep(3);
   }
@@ -145,8 +109,17 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
       });
       router.push(`/booking/confirmation/${appointment.confirmation_token}`);
     } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : "The appointment could not be booked");
+      const message = requestError instanceof Error ? requestError.message : "The appointment could not be booked";
       setSubmitting(false);
+      if (/no longer available|not available/i.test(message)) {
+        // Someone else got there first: show fresh times, keep the day and their details.
+        setSelectedSlot(null);
+        setAvailabilityVersion((version) => version + 1);
+        setStep(2);
+        setError("Sorry, that time was just booked by someone else. Please choose another time below.");
+        return;
+      }
+      setError(message);
     }
   }
 
@@ -191,7 +164,7 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
               onClick={continueToDate}
               className="mt-8 min-h-12 w-full rounded-full bg-foreground px-6 text-sm font-semibold text-white transition-colors hover:bg-brand-deep sm:w-auto"
             >
-              Choose a date
+              See available times
             </button>
           </div>
         )}
@@ -200,38 +173,14 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-deep">Step two</p>
             <h2 className="mt-3 text-4xl">Find your time.</h2>
-            <label className="mt-8 block max-w-xs text-sm font-semibold" htmlFor="appointment-date">
-              Appointment date
-              <input
-                id="appointment-date"
-                type="date"
-                min={minimumDate}
-                value={selectedDate}
-                onChange={(event) => chooseDate(event.target.value)}
-                className="mt-2 h-12 w-full rounded-xl border border-line bg-background px-4 outline-none focus:border-brand"
-              />
-            </label>
-            <div className="mt-8">
-              <p className="text-sm font-semibold">Available times</p>
-              {!selectedDate && <p className="mt-3 text-sm text-foreground/60">Choose a date to see available times.</p>}
-              {selectedDate && loadingSlots && <SlotSkeleton />}
-              {selectedDate && !loadingSlots && !slots.length && <p className="mt-3 text-sm text-foreground/60">There are no available times on this date. Try another day.</p>}
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {slots.map((slot) => (
-                  <button
-                    key={slot.starts_at}
-                    type="button"
-                    onClick={() => setSelectedSlot(slot)}
-                    className={`min-h-11 rounded-xl border px-3 text-sm font-semibold transition-colors ${selectedSlot?.starts_at === slot.starts_at ? "border-foreground bg-foreground text-white" : "border-line hover:border-brand"}`}
-                  >
-                    {londonTime(slot.starts_at)}
-                  </button>
-                ))}
-              </div>
+            <p className="mt-3 text-sm leading-6 text-foreground/65">Days with free times are highlighted. Pick a day, then a time that suits you.</p>
+            <div className="mt-6">
+              <AvailabilityPicker key={`${treatmentId}-${availabilityVersion}`} treatmentId={treatmentId} selectedDate={selectedDate} selectedSlot={selectedSlot} onSelect={chooseTime} />
             </div>
-            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row">
+            {/* Pinned on phones so the next step stays in reach below a long list of times. */}
+            <div className="sticky bottom-0 z-10 -mx-6 mt-8 flex gap-3 border-t border-line bg-white/95 px-6 py-4 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
               <button type="button" onClick={() => setStep(1)} className="min-h-12 rounded-full border border-line px-6 text-sm font-semibold hover:bg-surface">Back</button>
-              <button type="button" onClick={continueToDetails} className="min-h-12 rounded-full bg-foreground px-6 text-sm font-semibold text-white hover:bg-brand-deep">Enter your details</button>
+              <button type="button" onClick={continueToDetails} disabled={!selectedSlot} className="min-h-12 flex-1 rounded-full sm:flex-none bg-foreground px-6 text-sm font-semibold text-white hover:bg-brand-deep disabled:cursor-not-allowed disabled:opacity-40">{selectedSlot ? `Continue with ${londonTime(selectedSlot.starts_at)}` : "Choose a time to continue"}</button>
             </div>
           </div>
         )}

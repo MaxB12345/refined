@@ -73,6 +73,7 @@ export type AdminSettings = {
   slot_interval_minutes: number;
   cancellation_notice_hours: number;
   minimum_booking_notice_minutes: number;
+  buffer_minutes: number;
 };
 
 export type AdminGalleryItem = {

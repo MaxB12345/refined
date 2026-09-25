@@ -9,7 +9,7 @@ import { Badge, Button, Card, CardHeader, Drawer, EmptyState, Field, PageHeader,
 import { slugify, type DashboardData, type Refresh } from "./utils";
 
 const emptyProfile: AdminProfile = { id: true, business_name: "", beautician_name: "", tagline: "", about_heading: "", about_body: "", contact_email: "", contact_phone: "", location: "", instagram_url: "", whatsapp_number: "" };
-const emptySettings: AdminSettings = { id: true, timezone: "Europe/London", slot_interval_minutes: 15, cancellation_notice_hours: 24, minimum_booking_notice_minutes: 0 };
+const emptySettings: AdminSettings = { id: true, timezone: "Europe/London", slot_interval_minutes: 15, cancellation_notice_hours: 24, minimum_booking_notice_minutes: 0, buffer_minutes: 15 };
 
 type GalleryForm = { id: string | null; slug: string; image_url: string; alt_text: string; caption: string; display_order: number; published: boolean; file: File | null; preview: string };
 
@@ -70,6 +70,7 @@ export function WebsitePanel({ data, refresh }: { data: DashboardData; refresh: 
         slot_interval_minutes: Number(settings.slot_interval_minutes),
         cancellation_notice_hours: Number(settings.cancellation_notice_hours),
         minimum_booking_notice_minutes: Number(settings.minimum_booking_notice_minutes),
+        buffer_minutes: Number(settings.buffer_minutes),
       });
       await refresh();
       notify("Booking rules saved.");
@@ -172,8 +173,11 @@ export function WebsitePanel({ data, refresh }: { data: DashboardData; refresh: 
 
       <form onSubmit={saveSettings}>
         <Section title="Booking rules" description="Controls which times customers are offered online." footer={<Button type="submit" loading={busy === "settings"} disabled={!settingsDirty}>Save rules</Button>}>
+          <Field label="Break after each appointment" hint="Time to reset between clients. The next booking can't start until this break is over.">
+            {(id) => <div className="max-w-48"><Suffix suffix="mins"><input id={id} type="number" min="0" max="120" step="5" value={settings.buffer_minutes} onChange={(event) => setSettings({ ...settings, buffer_minutes: Number(event.target.value) })} className={`${inputClass} pr-14`} /></Suffix></div>}
+          </Field>
           <div className="grid gap-5 sm:grid-cols-3">
-            <Field label="Start times every" hint="e.g. 15 offers 9:00, 9:15, 9:30…">
+            <Field label="Start times every" hint="On an empty day, e.g. 15 offers 9:00, 9:15, 9:30…">
               {(id) => <Suffix suffix="mins"><input id={id} type="number" min="5" max="120" step="5" value={settings.slot_interval_minutes} onChange={(event) => setSettings({ ...settings, slot_interval_minutes: Number(event.target.value) })} className={`${inputClass} pr-14`} /></Suffix>}
             </Field>
             <Field label="Book at least" hint="How far ahead customers must book.">

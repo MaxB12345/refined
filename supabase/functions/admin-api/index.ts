@@ -31,7 +31,7 @@ const writableFields: Record<Resource, string[]> = {
   working_hours: ["day_of_week", "starts_at", "ends_at", "is_enabled"],
   blocked_times: ["starts_at", "ends_at", "reason"],
   business_profile: ["business_name", "beautician_name", "tagline", "about_heading", "about_body", "contact_email", "contact_phone", "location", "instagram_url", "whatsapp_number"],
-  business_settings: ["timezone", "slot_interval_minutes", "cancellation_notice_hours", "minimum_booking_notice_minutes"],
+  business_settings: ["timezone", "slot_interval_minutes", "cancellation_notice_hours", "minimum_booking_notice_minutes", "buffer_minutes"],
   gallery_items: ["slug", "storage_path", "image_url", "alt_text", "caption", "display_order", "published"],
   customers: ["full_name", "email", "phone"],
   appointments: ["customer_note", "admin_note", "cancellation_reason"],

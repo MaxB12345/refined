@@ -1,18 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { fetchAvailability, type AvailabilitySlot } from "@/lib/booking-api";
-import { AppointmentDetailSkeleton, SlotSkeleton } from "@/components/ui/loading";
+import { AvailabilityPicker } from "@/components/availability-picker";
+import { type AvailabilitySlot } from "@/lib/booking-api";
+import { AppointmentDetailSkeleton } from "@/components/ui/loading";
 import {
   cancelCustomerAppointment,
   getCustomerAppointments,
   rescheduleCustomerAppointment,
   type CustomerAppointment,
 } from "@/lib/customer-api";
-import { formatLondonDate, formatLondonTime, formatPrice, londonDateInput, londonTimeInput, londonToday } from "@/lib/date-format";
+import { formatLondonDate, formatLondonTime, formatPrice, londonDateInput, londonTimeInput } from "@/lib/date-format";
 
 function canChangeAppointment(appointment: CustomerAppointment) {
   return appointment.status === "confirmed" && new Date(appointment.starts_at).getTime() > Date.now();
@@ -20,13 +21,10 @@ function canChangeAppointment(appointment: CustomerAppointment) {
 
 export function CustomerAppointmentDetail({ appointmentId }: { appointmentId: string }) {
   const router = useRouter();
-  const availabilityRequest = useRef<AbortController | null>(null);
   const [appointment, setAppointment] = useState<CustomerAppointment | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
-  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingSlots, setLoadingSlots] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -54,31 +52,13 @@ export function CustomerAppointmentDetail({ appointmentId }: { appointmentId: st
     const task = window.setTimeout(() => void loadAppointmentForEffect(), 0);
     return () => {
       window.clearTimeout(task);
-      availabilityRequest.current?.abort();
     };
   }, [appointmentId]);
 
-  function chooseDate(value: string) {
-    setSelectedDate(value);
-    setSelectedSlot(null);
-    setSlots([]);
+  function chooseTime(date: string, slot: AvailabilitySlot | null) {
+    setSelectedDate(date);
+    setSelectedSlot(slot);
     setError("");
-    if (!appointment || !value) return;
-
-    availabilityRequest.current?.abort();
-    const controller = new AbortController();
-    availabilityRequest.current = controller;
-    setLoadingSlots(true);
-    fetchAvailability(appointment.treatment_id, value)
-      .then((response) => {
-        if (!controller.signal.aborted) setSlots(response.slots);
-      })
-      .catch((requestError: unknown) => {
-        if (!controller.signal.aborted) setError(requestError instanceof Error ? requestError.message : "Availability could not be loaded");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoadingSlots(false);
-      });
   }
 
   async function cancel() {
@@ -132,12 +112,7 @@ export function CustomerAppointmentDetail({ appointmentId }: { appointmentId: st
           <div className="mt-8">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-deep">Reschedule</p>
             <h2 className="mt-3 font-heading text-3xl">Choose a new time.</h2>
-            <label className="mt-6 block max-w-xs text-sm font-semibold" htmlFor="reschedule-date">New date<input id="reschedule-date" type="date" min={londonToday()} value={selectedDate} onChange={(event) => chooseDate(event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-line bg-background px-4 outline-none focus:border-brand" /></label>
-            {loadingSlots && <SlotSkeleton />}
-            {!loadingSlots && selectedDate && !slots.length && <p className="mt-5 text-sm text-foreground/65">No alternative times are available on this date.</p>}
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {slots.map((slot) => <button key={slot.starts_at} type="button" onClick={() => setSelectedSlot(slot)} className={`min-h-11 rounded-xl border px-3 text-sm font-semibold ${selectedSlot?.starts_at === slot.starts_at ? "border-foreground bg-foreground text-white" : "border-line hover:border-brand"}`}>{formatLondonTime(slot.starts_at)}</button>)}
-            </div>
+            <div className="mt-6"><AvailabilityPicker treatmentId={appointment.treatment_id} selectedDate={selectedDate} selectedSlot={selectedSlot} onSelect={chooseTime} /></div>
             <div className="mt-7 flex flex-wrap gap-3">
               <button type="button" onClick={reschedule} disabled={busy} className="min-h-11 rounded-full bg-foreground px-5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50">{busy ? "Saving..." : "Save new time"}</button>
               <button type="button" onClick={cancel} disabled={busy} className="min-h-11 rounded-full px-5 text-sm font-semibold text-brand-deep hover:bg-surface disabled:opacity-50">Cancel appointment</button>
