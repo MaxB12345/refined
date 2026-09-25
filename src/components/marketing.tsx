@@ -46,20 +46,18 @@ export function TreatmentCard({ treatment, index }: { treatment: PublicTreatment
   }).format(treatment.price_pence / 100);
 
   return (
-    <article className="group flex min-h-72 flex-col justify-between border-t border-line py-6 sm:min-h-80">
-      <div className="flex items-start justify-between gap-4">
-        <span className="text-xs font-semibold tracking-[0.2em] text-brand-deep">0{index + 1}</span>
-        <span className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-foreground/70">
+    <article className="flex h-full flex-col border-t border-line py-6">
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-xs font-semibold tracking-[0.2em] text-brand-deep">
+          {String(index + 1).padStart(2, "0")}
+        </span>
+        <span className="shrink-0 rounded-full border border-line px-3 py-1 text-xs font-semibold text-foreground/70">
           {treatment.duration_minutes} mins
         </span>
       </div>
-      <div>
-        <h2 className="max-w-xs text-3xl leading-tight transition-transform group-hover:translate-x-1 sm:text-4xl">
-          {treatment.name}
-        </h2>
-        <p className="mt-4 max-w-sm text-sm leading-7 text-foreground/65">{treatment.description}</p>
-        <p className="mt-6 text-sm font-semibold">From {price}</p>
-      </div>
+      <h2 className="mt-6 text-3xl leading-tight sm:text-4xl">{treatment.name}</h2>
+      <p className="mt-4 max-w-md text-sm leading-7 text-foreground/65">{treatment.description}</p>
+      <p className="mt-auto pt-6 text-sm font-semibold">From {price}</p>
     </article>
   );
 }
@@ -90,7 +88,7 @@ export function CtaPanel({
     <section className="mx-auto max-w-7xl px-6 py-16 sm:px-10 sm:py-24 lg:px-12">
       <div className="relative overflow-hidden rounded-[2rem] bg-foreground px-7 py-12 text-white sm:px-12 sm:py-16">
         <div className="absolute -right-10 -top-20 h-64 w-64 rounded-full border border-white/15" />
-        <div className="absolute bottom-8 right-20 h-20 w-20 rounded-full bg-brand/30" />
+        <div className="absolute bottom-8 right-20 hidden h-20 w-20 rounded-full bg-brand/30 sm:block" />
         <div className="relative max-w-xl">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-brand">{eyebrow}</p>
           <h2 className="mt-5 text-4xl leading-tight sm:text-6xl">{title}</h2>

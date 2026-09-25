@@ -19,7 +19,7 @@ export function SiteFooter() {
           <Link href="/book" className="transition-colors hover:text-foreground">
             Book appointment
           </Link>
-          <span>{siteConfig.timezone}</span>
+          <span>© {new Date().getFullYear()} {siteConfig.name}</span>
         </div>
       </div>
     </footer>

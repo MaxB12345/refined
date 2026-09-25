@@ -10,6 +10,9 @@ export const dynamic = "force-dynamic";
 export default async function ContactPage() {
   const profile = await getPublicProfile();
   const isPlaceholderEmail = profile.contact_email.endsWith(".example");
+  const [emailUser, emailDomain] = profile.contact_email.split("@");
+  // Let long addresses wrap before the "@" rather than mid-word.
+  const emailLabel = emailDomain ? <>{emailUser}<wbr />@{emailDomain}</> : profile.contact_email;
   const hasPhone = !profile.contact_phone.toLowerCase().includes("coming soon");
 
   return (
@@ -28,30 +31,30 @@ export default async function ContactPage() {
             Book an appointment
           </Link>
         </PageIntro>
-        <section className="mx-auto grid max-w-7xl gap-5 px-6 py-16 sm:px-10 sm:py-24 md:grid-cols-3 lg:px-12">
-          <div className="min-w-0 rounded-[1.5rem] bg-surface p-7 sm:p-9">
+        <section className="mx-auto grid max-w-7xl gap-5 px-6 py-16 sm:grid-cols-2 sm:px-10 sm:py-24 lg:grid-cols-[1.4fr_1fr_1fr] lg:px-12">
+          <div className="min-w-0 rounded-[1.5rem] bg-surface p-7 sm:col-span-2 sm:p-9 lg:col-span-1">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-deep">Email</p>
             {isPlaceholderEmail ? (
-              <p className="mt-5 break-words font-heading text-2xl">{profile.contact_email}</p>
+              <p className="mt-5 break-words font-heading text-xl sm:text-2xl lg:text-xl xl:text-2xl">{emailLabel}</p>
             ) : (
-              <a href={`mailto:${profile.contact_email}`} className="mt-5 block break-words font-heading text-2xl underline decoration-brand underline-offset-4">
-                {profile.contact_email}
+              <a href={`mailto:${profile.contact_email}`} className="mt-5 block break-words font-heading text-xl underline decoration-brand underline-offset-4 sm:text-2xl lg:text-xl xl:text-2xl">
+                {emailLabel}
               </a>
             )}
           </div>
           <div className="min-w-0 rounded-[1.5rem] bg-surface p-7 sm:p-9">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-deep">Phone</p>
             {hasPhone ? (
-              <a href={`tel:${profile.contact_phone}`} className="mt-5 block break-words font-heading text-2xl underline decoration-brand underline-offset-4">
+              <a href={`tel:${profile.contact_phone}`} className="mt-5 block break-words font-heading text-xl underline decoration-brand underline-offset-4 sm:text-2xl">
                 {profile.contact_phone}
               </a>
             ) : (
-              <p className="mt-5 break-words font-heading text-2xl">{profile.contact_phone}</p>
+              <p className="mt-5 break-words font-heading text-xl sm:text-2xl">{profile.contact_phone}</p>
             )}
           </div>
           <div className="min-w-0 rounded-[1.5rem] bg-surface p-7 sm:p-9">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-deep">Based in</p>
-            <p className="mt-5 break-words font-heading text-2xl">{profile.location}</p>
+            <p className="mt-5 break-words font-heading text-xl sm:text-2xl">{profile.location}</p>
           </div>
         </section>
         <section className="border-y border-line bg-surface">

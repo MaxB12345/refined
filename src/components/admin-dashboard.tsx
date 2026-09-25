@@ -1,79 +1,81 @@
 "use client";
 
-import { useEffect, useEffectEvent, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useEffectEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import {
-  cancelAdminAppointment,
-  createAdminAppointment,
-  createAdminRecord,
-  deleteAdminRecord,
-  getAdminDashboardData,
-  rescheduleAdminAppointment,
-  updateAdminRecord,
-  type AdminBlockedTime,
-  type AdminCustomer,
-  type AdminGalleryItem,
-  type AdminProfile,
-  type AdminSettings,
-  type AdminTreatment,
-  type AdminWorkingHour,
-} from "@/lib/admin-api";
-import { formatLondonDate, formatLondonTime, formatPrice, londonDateInput, londonToday } from "@/lib/date-format";
+import { getAdminDashboardData } from "@/lib/admin-api";
+import { londonDateInput, londonToday } from "@/lib/date-format";
+import { AdminSkeleton } from "@/components/admin/skeleton";
+import { AppointmentsPanel } from "@/components/admin/appointments";
+import { AvailabilityPanel } from "@/components/admin/availability";
+import { CustomersPanel } from "@/components/admin/customers";
+import { OverviewPanel } from "@/components/admin/overview";
+import { isAdminSection, type AdminSection } from "@/components/admin/sections";
+import { TreatmentsPanel } from "@/components/admin/treatments";
+import { Button, FeedbackProvider } from "@/components/admin/ui";
+import { WebsitePanel } from "@/components/admin/website";
+import { AlertIcon, CalendarIcon, ClockIcon, ExternalIcon, GlobeIcon, HomeIcon, LogoutIcon, RefreshIcon, SparkleIcon, UsersIcon } from "@/components/admin/icons";
+import { initials, isActive, type DashboardData } from "@/components/admin/utils";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-type DashboardData = Awaited<ReturnType<typeof getAdminDashboardData>>;
+const navigation: { key: AdminSection; label: string; icon: typeof HomeIcon }[] = [
+  { key: "overview", label: "Today", icon: HomeIcon },
+  { key: "calendar", label: "Calendar", icon: CalendarIcon },
+  { key: "customers", label: "Customers", icon: UsersIcon },
+  { key: "treatments", label: "Treatments", icon: SparkleIcon },
+  { key: "availability", label: "Opening hours", icon: ClockIcon },
+  { key: "website", label: "Website", icon: GlobeIcon },
+];
 
-const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const tabs = [
-  ["calendar", "Calendar"],
-  ["treatments", "Treatments"],
-  ["availability", "Availability"],
-  ["customers", "Customers"],
-  ["content", "Content"],
-] as const;
-
-function inputTime(value: string) {
-  return value.slice(0, 5);
-}
-
-function localDateTime(value: string) {
-  const date = new Date(value);
-  const pad = (part: number) => String(part).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function PanelMessage({ error, message }: { error: string; message: string }) {
+export function AdminDashboard({ displayName }: { displayName?: string | null }) {
   return (
-    <>
-      {message && <p role="status" className="mt-4 text-sm text-brand-deep">{message}</p>}
-      {error && <p role="alert" className="mt-4 rounded-xl bg-surface px-4 py-3 text-sm">{error}</p>}
-    </>
+    <FeedbackProvider>
+      <AdminWorkspace displayName={displayName} />
+    </FeedbackProvider>
   );
 }
 
-export function AdminDashboard({ displayName }: { displayName?: string | null }) {
+function AdminWorkspace({ displayName }: { displayName?: string | null }) {
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
-  const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>("calendar");
-  const [loading, setLoading] = useState(true);
+  const [section, setSection] = useState<AdminSection>("overview");
   const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
+    setRefreshing(true);
     try {
       setData(await getAdminDashboardData());
       setError("");
     } catch (requestError: unknown) {
       setError(requestError instanceof Error ? requestError.message : "The admin dashboard could not be loaded");
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
-  }
+  }, []);
 
   const loadForEffect = useEffectEvent(load);
   useEffect(() => {
     const task = window.setTimeout(() => void loadForEffect(), 0);
     return () => window.clearTimeout(task);
+  }, []);
+
+  // Keep the open section in the URL hash so a refresh or the back button lands in the same place.
+  useEffect(() => {
+    const sync = () => {
+      const hash = window.location.hash.slice(1);
+      setSection(isAdminSection(hash) ? hash : "overview");
+    };
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
+
+  const navigate = useCallback((next: AdminSection) => {
+    setSection(next);
+    if (window.location.hash.slice(1) !== next) window.history.pushState(null, "", `#${next}`);
+    window.scrollTo({ top: 0 });
   }, []);
 
   async function signOut() {
@@ -82,186 +84,103 @@ export function AdminDashboard({ displayName }: { displayName?: string | null })
     router.refresh();
   }
 
-  if (loading) return <main className="mx-auto min-h-screen max-w-7xl px-6 py-16 text-sm text-foreground/65">Loading admin workspace...</main>;
-  if (!data) return <main className="mx-auto min-h-screen max-w-7xl px-6 py-16"><p role="alert" className="rounded-2xl bg-surface px-5 py-4 text-sm">{error || "Admin workspace unavailable"}</p></main>;
+  if (!data && !error) return <AdminSkeleton />;
 
-  return (
-    <main className="mx-auto min-h-screen max-w-7xl px-6 py-8 sm:px-10 lg:px-12">
-      <header className="flex flex-col justify-between gap-5 border-b border-line pb-8 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-deep">Sculpted by Ruby</p>
-          <h1 className="mt-4 text-5xl leading-tight">Admin workspace.</h1>
-          <p className="mt-2 text-sm text-foreground/65">{displayName ? `Welcome, ${displayName}.` : "Manage the business in one place."}</p>
+  if (!data) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-6 py-16">
+        <div role="alert" className="w-full max-w-md rounded-3xl border border-line bg-white p-8 text-center shadow-sm">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-700"><AlertIcon /></span>
+          <h1 className="mt-4 text-2xl">We couldn&apos;t load your workspace</h1>
+          <p className="mt-2 text-sm leading-6 text-foreground/65">{error}</p>
+          <div className="mt-6 flex justify-center gap-2">
+            <Button variant="secondary" onClick={signOut}>Sign out</Button>
+            <Button icon={<RefreshIcon className="h-4 w-4" />} loading={refreshing} onClick={() => void load()}>Try again</Button>
+          </div>
         </div>
-        <button type="button" onClick={signOut} className="w-fit text-sm font-semibold underline decoration-brand underline-offset-4">Sign out</button>
-      </header>
-      <nav className="-mx-2 flex gap-1 overflow-x-auto py-5" aria-label="Admin sections">
-        {tabs.map(([key, label]) => (
-          <button key={key} type="button" onClick={() => setActiveTab(key)} className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold ${activeTab === key ? "bg-foreground text-white" : "text-foreground/65 hover:bg-surface"}`}>
-            {label}
-          </button>
-        ))}
-      </nav>
-      {activeTab === "calendar" && <AppointmentPanel data={data} refresh={load} />}
-      {activeTab === "treatments" && <TreatmentsPanel treatments={data.treatments} refresh={load} />}
-      {activeTab === "availability" && <AvailabilityPanel workingHours={data.workingHours} blockedTimes={data.blockedTimes} refresh={load} />}
-      {activeTab === "customers" && <CustomersPanel customers={data.customers} refresh={load} />}
-      {activeTab === "content" && <ContentPanel profile={data.profile} settings={data.settings} gallery={data.gallery} refresh={load} />}
-    </main>
-  );
-}
-
-function AppointmentPanel({ data, refresh }: { data: DashboardData; refresh: () => Promise<void> }) {
-  const [selectedDay, setSelectedDay] = useState(londonToday());
-  const [showCreate, setShowCreate] = useState(false);
-  const [editingId, setEditingId] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const appointments = data.appointments.filter((appointment) => londonDateInput(appointment.starts_at) === selectedDay);
-
-  async function create(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    const values = Object.fromEntries(new FormData(event.currentTarget).entries());
-    try {
-      await createAdminAppointment(values);
-      event.currentTarget.reset();
-      setShowCreate(false);
-      setMessage("Appointment created.");
-      await refresh();
-    } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : "Appointment could not be created");
-    } finally {
-      setBusy(false);
-    }
+      </main>
+    );
   }
 
-  async function cancel(id: string) {
-    if (!window.confirm("Cancel this appointment?")) return;
-    setBusy(true);
-    try {
-      await cancelAdminAppointment(id, "Cancelled by admin");
-      await refresh();
-      setMessage("Appointment cancelled.");
-    } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : "Appointment could not be cancelled");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function reschedule(event: FormEvent<HTMLFormElement>, id: string) {
-    event.preventDefault();
-    setBusy(true);
-    const values = Object.fromEntries(new FormData(event.currentTarget).entries());
-    try {
-      await rescheduleAdminAppointment(id, String(values.date), String(values.start_time));
-      setEditingId("");
-      await refresh();
-      setMessage("Appointment rescheduled.");
-    } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : "Appointment could not be rescheduled");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const today = londonToday();
+  const todayCount = data.appointments.filter((appointment) => isActive(appointment) && londonDateInput(appointment.starts_at) === today).length;
+  const name = displayName || "Admin";
 
   return (
-    <section>
-      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-        <div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-deep">Appointments</p><h2 className="mt-3 text-4xl">Calendar</h2></div>
-        <div className="flex flex-wrap gap-3"><input type="date" value={selectedDay} onChange={(event) => setSelectedDay(event.target.value)} className="h-11 rounded-xl border border-line bg-background px-3 text-sm" /><button type="button" onClick={() => setShowCreate((value) => !value)} className="h-11 rounded-full bg-foreground px-5 text-sm font-semibold text-white hover:bg-brand-deep">{showCreate ? "Close form" : "New appointment"}</button></div>
+    <div className="min-h-screen bg-canvas lg:grid lg:grid-cols-[16rem_1fr]">
+      {/* Desktop sidebar */}
+      <aside className="sticky top-0 hidden h-screen flex-col border-r border-line bg-white lg:flex">
+        <div className="px-6 pb-6 pt-7">
+          <Link href="/" className="block">
+            <span className="block font-heading text-2xl leading-none">Sculpted</span>
+            <span className="mt-1 block pl-5 text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-brand-deep">by Ruby · Admin</span>
+          </Link>
+        </div>
+        <nav aria-label="Admin sections" className="flex-1 space-y-0.5 px-3">
+          {navigation.map(({ key, label, icon: Icon }) => {
+            const active = section === key;
+            return (
+              <button key={key} type="button" onClick={() => navigate(key)} aria-current={active ? "page" : undefined} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${active ? "bg-surface text-foreground" : "text-foreground/60 hover:bg-surface/60 hover:text-foreground"}`}>
+                <Icon className={`h-5 w-5 ${active ? "text-brand-deep" : ""}`} />
+                <span className="flex-1 text-left">{label}</span>
+                {key === "overview" && todayCount > 0 && <span className="rounded-full bg-foreground px-2 py-0.5 text-[0.65rem] font-bold text-white">{todayCount}</span>}
+              </button>
+            );
+          })}
+        </nav>
+        <div className="space-y-1 border-t border-line p-3">
+          <Link href="/" target="_blank" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-foreground/60 hover:bg-surface/60 hover:text-foreground">
+            <ExternalIcon className="h-5 w-5" /> View website
+          </Link>
+          <div className="flex items-center gap-3 rounded-xl px-3 py-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand/20 text-xs font-bold text-brand-deep">{initials(name)}</span>
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold">{name}</span>
+            <button type="button" onClick={signOut} aria-label="Sign out" title="Sign out" className="rounded-full p-1.5 text-foreground/50 hover:bg-surface hover:text-foreground"><LogoutIcon className="h-4 w-4" /></button>
+          </div>
+        </div>
+      </aside>
+
+      <div className="min-w-0">
+        {/* Mobile top bar + tabs */}
+        <header className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur lg:hidden">
+          <div className="flex items-center justify-between px-4 py-3">
+            <Link href="/" className="block">
+              <span className="block font-heading text-xl leading-none">Sculpted</span>
+              <span className="mt-0.5 block pl-4 text-[0.55rem] font-semibold uppercase tracking-[0.3em] text-brand-deep">Admin</span>
+            </Link>
+            <div className="flex items-center gap-1">
+              <Link href="/" target="_blank" aria-label="View website" className="rounded-full p-2 text-foreground/60 hover:bg-surface"><ExternalIcon className="h-5 w-5" /></Link>
+              <button type="button" onClick={signOut} aria-label="Sign out" className="rounded-full p-2 text-foreground/60 hover:bg-surface"><LogoutIcon className="h-5 w-5" /></button>
+            </div>
+          </div>
+          <nav aria-label="Admin sections" className="flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none]">
+            {navigation.map(({ key, label, icon: Icon }) => (
+              <button key={key} type="button" onClick={() => navigate(key)} aria-current={section === key ? "page" : undefined} className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition-colors ${section === key ? "bg-foreground text-white" : "text-foreground/60 hover:bg-surface"}`}>
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            ))}
+          </nav>
+        </header>
+
+        <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-8 sm:py-10">
+          {error && (
+            <div role="alert" className="mb-6 flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-800">
+              <AlertIcon className="h-5 w-5" />
+              <p className="flex-1">Couldn&apos;t refresh: {error}</p>
+              <button type="button" onClick={() => void load()} className="font-semibold underline underline-offset-4">Retry</button>
+            </div>
+          )}
+          <div key={section} className="animate-fade-up">
+            {section === "overview" && <OverviewPanel data={data} refresh={load} displayName={displayName} navigate={navigate} />}
+            {section === "calendar" && <AppointmentsPanel data={data} refresh={load} />}
+            {section === "customers" && <CustomersPanel data={data} refresh={load} />}
+            {section === "treatments" && <TreatmentsPanel treatments={data.treatments} refresh={load} />}
+            {section === "availability" && <AvailabilityPanel data={data} refresh={load} />}
+            {section === "website" && <WebsitePanel data={data} refresh={load} />}
+          </div>
+        </main>
       </div>
-      {showCreate && <form onSubmit={create} className="mt-6 grid gap-4 rounded-[1.5rem] bg-surface p-6 sm:grid-cols-2">
-        <h3 className="font-heading text-2xl sm:col-span-2">Create appointment</h3>
-        <select name="treatment_id" required className="h-11 rounded-xl border border-line bg-background px-3 text-sm"><option value="">Treatment</option>{data.treatments.filter((item) => item.active).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-        <input name="date" type="date" defaultValue={selectedDay} required className="h-11 rounded-xl border border-line bg-background px-3 text-sm" />
-        <input name="start_time" type="time" defaultValue="09:00" required className="h-11 rounded-xl border border-line bg-background px-3 text-sm" />
-        <input name="customer_name" placeholder="Customer name" required className="h-11 rounded-xl border border-line bg-background px-3 text-sm" />
-        <input name="customer_email" type="email" placeholder="Customer email" required className="h-11 rounded-xl border border-line bg-background px-3 text-sm" />
-        <input name="customer_phone" type="tel" placeholder="Customer phone" required className="h-11 rounded-xl border border-line bg-background px-3 text-sm" />
-        <button disabled={busy} className="h-11 rounded-full bg-foreground px-5 text-sm font-semibold text-white disabled:opacity-50 sm:col-span-2">{busy ? "Creating..." : "Create appointment"}</button>
-      </form>}
-      <div className="mt-8 space-y-4">
-        {!appointments.length && <div className="rounded-[1.5rem] border border-line bg-surface p-7 text-sm text-foreground/65">No appointments on this date.</div>}
-        {appointments.map((appointment) => <article key={appointment.id} className={`rounded-[1.5rem] border border-line bg-white p-6 ${appointment.status !== "confirmed" ? "opacity-65" : ""}`}>
-          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start"><div><div className="flex flex-wrap items-center gap-3"><h3 className="font-heading text-3xl">{appointment.treatment_name}</h3><span className="rounded-full bg-surface px-3 py-1 text-xs font-semibold capitalize">{appointment.status.replace("_", " ")}</span></div><p className="mt-3 text-sm font-semibold">{formatLondonTime(appointment.starts_at)} · {appointment.duration_minutes} mins · {formatPrice(appointment.price_pence)}</p><p className="mt-2 text-sm text-foreground/65">Customer ID: {appointment.customer_id.slice(0, 8)}</p></div>{appointment.status === "confirmed" && <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setEditingId(editingId === appointment.id ? "" : appointment.id)} className="rounded-full border border-line px-4 py-2 text-xs font-semibold hover:bg-surface">Reschedule</button><button type="button" onClick={() => cancel(appointment.id)} disabled={busy} className="rounded-full px-4 py-2 text-xs font-semibold text-brand-deep hover:bg-surface">Cancel</button></div>}</div>
-          {editingId === appointment.id && <form onSubmit={(event) => reschedule(event, appointment.id)} className="mt-5 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row"><input name="date" type="date" defaultValue={londonDateInput(appointment.starts_at)} required className="h-10 rounded-xl border border-line bg-background px-3 text-sm" /><input name="start_time" type="time" defaultValue={inputTime(formatLondonTime(appointment.starts_at))} required className="h-10 rounded-xl border border-line bg-background px-3 text-sm" /><button disabled={busy} className="h-10 rounded-full bg-foreground px-4 text-xs font-semibold text-white disabled:opacity-50">Save time</button></form>}
-        </article>)}
-      </div>
-      <PanelMessage error={error} message={message} />
-    </section>
+    </div>
   );
-}
-
-function TreatmentsPanel({ treatments, refresh }: { treatments: AdminTreatment[]; refresh: () => Promise<void> }) {
-  const blank = { name: "", slug: "", description: "", price_pence: "", duration_minutes: "", display_order: "0", active: true };
-  const [form, setForm] = useState(blank);
-  const [editingId, setEditingId] = useState("");
-  const [error, setError] = useState("");
-
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const payload = { ...form, price_pence: Number(form.price_pence), duration_minutes: Number(form.duration_minutes), display_order: Number(form.display_order) };
-    try { if (editingId) await updateAdminRecord("treatments", editingId, payload); else await createAdminRecord("treatments", payload); setForm(blank); setEditingId(""); await refresh(); } catch (requestError: unknown) { setError(requestError instanceof Error ? requestError.message : "Treatment could not be saved"); }
-  }
-
-  return <section><div className="flex items-end justify-between gap-5"><div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-deep">Menu</p><h2 className="mt-3 text-4xl">Treatments</h2></div><button type="button" onClick={() => { setForm(blank); setEditingId(""); }} className="text-sm font-semibold underline decoration-brand underline-offset-4">Add new</button></div><div className="mt-8 grid gap-6 lg:grid-cols-[1fr_1.2fr]"><form onSubmit={save} className="h-fit grid gap-3 rounded-[1.5rem] bg-surface p-6"><h3 className="font-heading text-2xl">{editingId ? "Edit treatment" : "New treatment"}</h3><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Name" required className="h-11 rounded-xl border border-line bg-background px-3 text-sm" /><input value={form.slug} onChange={(event) => setForm({ ...form, slug: event.target.value })} placeholder="Slug" required className="h-11 rounded-xl border border-line bg-background px-3 text-sm" /><textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Description" rows={3} className="rounded-xl border border-line bg-background px-3 py-3 text-sm" /><div className="grid grid-cols-2 gap-3"><input value={form.price_pence} onChange={(event) => setForm({ ...form, price_pence: event.target.value })} placeholder="Price pence" type="number" min="0" required className="h-11 rounded-xl border border-line bg-background px-3 text-sm" /><input value={form.duration_minutes} onChange={(event) => setForm({ ...form, duration_minutes: event.target.value })} placeholder="Minutes" type="number" min="5" required className="h-11 rounded-xl border border-line bg-background px-3 text-sm" /></div><button className="h-11 rounded-full bg-foreground text-sm font-semibold text-white hover:bg-brand-deep">{editingId ? "Save treatment" : "Add treatment"}</button></form><div className="space-y-3">{treatments.map((treatment) => <div key={treatment.id} className="flex items-center justify-between gap-4 rounded-2xl border border-line bg-white p-5"><div><p className="font-heading text-2xl">{treatment.name}</p><p className="mt-1 text-xs text-foreground/60">{formatPrice(treatment.price_pence)} · {treatment.duration_minutes} mins · {treatment.active ? "Active" : "Hidden"}</p></div><div className="flex gap-2"><button type="button" onClick={() => { setEditingId(treatment.id); setForm({ name: treatment.name, slug: treatment.slug, description: treatment.description ?? "", price_pence: String(treatment.price_pence), duration_minutes: String(treatment.duration_minutes), display_order: String(treatment.display_order), active: treatment.active }); }} className="rounded-full border border-line px-3 py-2 text-xs font-semibold">Edit</button><button type="button" onClick={async () => { if (window.confirm("Delete this treatment?")) { await deleteAdminRecord("treatments", treatment.id); await refresh(); } }} className="rounded-full px-3 py-2 text-xs font-semibold text-brand-deep">Delete</button></div></div>)}</div></div><PanelMessage error={error} message="" /></section>;
-}
-
-function AvailabilityPanel({ workingHours, blockedTimes, refresh }: { workingHours: AdminWorkingHour[]; blockedTimes: AdminBlockedTime[]; refresh: () => Promise<void> }) {
-  const [hourForm, setHourForm] = useState({ day_of_week: "1", starts_at: "09:00", ends_at: "17:00", is_enabled: true });
-  const [editingHour, setEditingHour] = useState("");
-  const [blockedForm, setBlockedForm] = useState({ starts_at: "", ends_at: "", reason: "" });
-  const [editingBlocked, setEditingBlocked] = useState("");
-  const [error, setError] = useState("");
-  async function saveHour(event: FormEvent<HTMLFormElement>) { event.preventDefault(); try { const payload = { day_of_week: Number(hourForm.day_of_week), starts_at: hourForm.starts_at, ends_at: hourForm.ends_at, is_enabled: hourForm.is_enabled }; if (editingHour) await updateAdminRecord("working_hours", editingHour, payload); else await createAdminRecord("working_hours", payload); setEditingHour(""); await refresh(); } catch (requestError: unknown) { setError(requestError instanceof Error ? requestError.message : "Working hours could not be saved"); } }
-  async function saveBlocked(event: FormEvent<HTMLFormElement>) { event.preventDefault(); try { const payload = { starts_at: new Date(blockedForm.starts_at).toISOString(), ends_at: new Date(blockedForm.ends_at).toISOString(), reason: blockedForm.reason }; if (editingBlocked) await updateAdminRecord("blocked_times", editingBlocked, payload); else await createAdminRecord("blocked_times", payload); setEditingBlocked(""); setBlockedForm({ starts_at: "", ends_at: "", reason: "" }); await refresh(); } catch (requestError: unknown) { setError(requestError instanceof Error ? requestError.message : "Blocked time could not be saved"); } }
-  return <section><p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-deep">Schedule</p><h2 className="mt-3 text-4xl">Availability</h2><div className="mt-8 grid gap-8 lg:grid-cols-2"><div><h3 className="font-heading text-2xl">Working hours</h3><form onSubmit={saveHour} className="mt-4 grid gap-3 rounded-[1.5rem] bg-surface p-5"><div className="grid grid-cols-3 gap-2"><select value={hourForm.day_of_week} onChange={(event) => setHourForm({ ...hourForm, day_of_week: event.target.value })} className="h-10 rounded-xl border border-line bg-background px-2 text-xs">{dayNames.map((day, index) => <option key={day} value={index}>{day}</option>)}</select><input type="time" value={hourForm.starts_at} onChange={(event) => setHourForm({ ...hourForm, starts_at: event.target.value })} required className="h-10 rounded-xl border border-line bg-background px-2 text-xs" /><input type="time" value={hourForm.ends_at} onChange={(event) => setHourForm({ ...hourForm, ends_at: event.target.value })} required className="h-10 rounded-xl border border-line bg-background px-2 text-xs" /></div><label className="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" checked={hourForm.is_enabled} onChange={(event) => setHourForm({ ...hourForm, is_enabled: event.target.checked })} /> Enabled</label><button className="h-10 rounded-full bg-foreground text-xs font-semibold text-white">{editingHour ? "Save hours" : "Add hours"}</button></form><div className="mt-4 space-y-2">{workingHours.map((hour) => <div key={hour.id} className="flex items-center justify-between rounded-xl border border-line px-4 py-3 text-sm"><span>{dayNames[hour.day_of_week]} · {inputTime(hour.starts_at)}–{inputTime(hour.ends_at)}<small className="block text-xs text-foreground/55">{hour.is_enabled ? "Enabled" : "Disabled"}</small></span><span className="flex gap-2"><button type="button" onClick={() => { setEditingHour(hour.id); setHourForm({ day_of_week: String(hour.day_of_week), starts_at: inputTime(hour.starts_at), ends_at: inputTime(hour.ends_at), is_enabled: hour.is_enabled }); }} className="text-xs font-semibold underline decoration-brand underline-offset-4">Edit</button><button type="button" onClick={async () => { await deleteAdminRecord("working_hours", hour.id); await refresh(); }} className="text-xs font-semibold text-brand-deep">Delete</button></span></div>)}</div></div><div><h3 className="font-heading text-2xl">Blocked times</h3><form onSubmit={saveBlocked} className="mt-4 grid gap-3 rounded-[1.5rem] bg-surface p-5"><input type="datetime-local" value={blockedForm.starts_at} onChange={(event) => setBlockedForm({ ...blockedForm, starts_at: event.target.value })} required className="h-10 rounded-xl border border-line bg-background px-3 text-xs" /><input type="datetime-local" value={blockedForm.ends_at} onChange={(event) => setBlockedForm({ ...blockedForm, ends_at: event.target.value })} required className="h-10 rounded-xl border border-line bg-background px-3 text-xs" /><input value={blockedForm.reason} onChange={(event) => setBlockedForm({ ...blockedForm, reason: event.target.value })} placeholder="Reason" className="h-10 rounded-xl border border-line bg-background px-3 text-xs" /><button className="h-10 rounded-full bg-foreground text-xs font-semibold text-white">{editingBlocked ? "Save blocked time" : "Block time"}</button></form><div className="mt-4 space-y-2">{blockedTimes.map((blocked) => <div key={blocked.id} className="flex items-center justify-between rounded-xl border border-line px-4 py-3 text-sm"><span>{formatLondonDate(blocked.starts_at)} · {formatLondonTime(blocked.starts_at)}–{formatLondonTime(blocked.ends_at)}<small className="block text-xs text-foreground/55">{blocked.reason}</small></span><span className="flex gap-2"><button type="button" onClick={() => { setEditingBlocked(blocked.id); setBlockedForm({ starts_at: localDateTime(blocked.starts_at), ends_at: localDateTime(blocked.ends_at), reason: blocked.reason ?? "" }); }} className="text-xs font-semibold underline decoration-brand underline-offset-4">Edit</button><button type="button" onClick={async () => { await deleteAdminRecord("blocked_times", blocked.id); await refresh(); }} className="text-xs font-semibold text-brand-deep">Unblock</button></span></div>)}</div></div></div><PanelMessage error={error} message="" /></section>;
-}
-
-function CustomersPanel({ customers, refresh }: { customers: AdminCustomer[]; refresh: () => Promise<void> }) {
-  const [editingId, setEditingId] = useState("");
-  const [form, setForm] = useState({ full_name: "", email: "", phone: "" });
-  const [error, setError] = useState("");
-  async function save(event: FormEvent<HTMLFormElement>) { event.preventDefault(); try { if (editingId) await updateAdminRecord("customers", editingId, form); else await createAdminRecord("customers", form); setEditingId(""); setForm({ full_name: "", email: "", phone: "" }); await refresh(); } catch (requestError: unknown) { setError(requestError instanceof Error ? requestError.message : "Customer could not be saved"); } }
-  return <section><p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-deep">People</p><h2 className="mt-3 text-4xl">Customers</h2><div className="mt-8 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]"><form onSubmit={save} className="h-fit grid gap-3 rounded-[1.5rem] bg-surface p-6"><h3 className="font-heading text-2xl">{editingId ? "Edit customer" : "Add customer"}</h3><input value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} placeholder="Full name" required className="h-11 rounded-xl border border-line bg-background px-3 text-sm" /><input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="Email" type="email" required className="h-11 rounded-xl border border-line bg-background px-3 text-sm" /><input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="Phone" required className="h-11 rounded-xl border border-line bg-background px-3 text-sm" /><button className="h-11 rounded-full bg-foreground text-sm font-semibold text-white">{editingId ? "Save customer" : "Add customer"}</button></form><div className="space-y-3">{customers.map((customer) => <div key={customer.id} className="flex items-center justify-between gap-4 rounded-2xl border border-line bg-white p-5"><div><p className="font-semibold">{customer.full_name}</p><p className="mt-1 text-xs text-foreground/60">{customer.email} · {customer.phone}</p></div><div className="flex gap-2"><button type="button" onClick={() => { setEditingId(customer.id); setForm({ full_name: customer.full_name, email: customer.email, phone: customer.phone }); }} className="rounded-full border border-line px-3 py-2 text-xs font-semibold">Edit</button><button type="button" onClick={async () => { if (window.confirm("Anonymise this customer?")) { await deleteAdminRecord("customers", customer.id); await refresh(); } }} className="rounded-full px-3 py-2 text-xs font-semibold text-brand-deep">Anonymise</button></div></div>)}</div></div><PanelMessage error={error} message="" /></section>;
-}
-
-function ContentPanel({ profile, settings, gallery, refresh }: { profile: AdminProfile | null; settings: AdminSettings | null; gallery: AdminGalleryItem[]; refresh: () => Promise<void> }) {
-  const [profileForm, setProfileForm] = useState(profile ?? { id: true, business_name: "", beautician_name: "", tagline: "", about_heading: "", about_body: "", contact_email: "", contact_phone: "", location: "", instagram_url: "", whatsapp_number: "" });
-  const [settingsForm, setSettingsForm] = useState(settings ?? { id: true, timezone: "Europe/London", slot_interval_minutes: 15, cancellation_notice_hours: 24, minimum_booking_notice_minutes: 0 });
-  const [galleryForm, setGalleryForm] = useState({ slug: "", image_url: "", alt_text: "", caption: "", display_order: "0", published: true });
-  const [editingGallery, setEditingGallery] = useState("");
-  const [error, setError] = useState("");
-  async function saveProfile(event: FormEvent<HTMLFormElement>) { event.preventDefault(); try { await updateAdminRecord("business_profile", null, profileForm); await refresh(); } catch (requestError: unknown) { setError(requestError instanceof Error ? requestError.message : "Profile could not be saved"); } }
-  async function saveSettings(event: FormEvent<HTMLFormElement>) { event.preventDefault(); try { await updateAdminRecord("business_settings", null, { ...settingsForm, slot_interval_minutes: Number(settingsForm.slot_interval_minutes), cancellation_notice_hours: Number(settingsForm.cancellation_notice_hours), minimum_booking_notice_minutes: Number(settingsForm.minimum_booking_notice_minutes) }); await refresh(); } catch (requestError: unknown) { setError(requestError instanceof Error ? requestError.message : "Settings could not be saved"); } }
-  async function saveGallery(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    try {
-      const file = (event.currentTarget.elements.namedItem("image_file") as HTMLInputElement | null)?.files?.[0];
-      let imageUrl = galleryForm.image_url;
-      let storagePath: string | undefined;
-      if (file) {
-        const safeName = file.name.toLowerCase().replace(/[^a-z0-9.]+/g, "-");
-        storagePath = `gallery/${crypto.randomUUID()}-${safeName}`;
-        const storage = createSupabaseBrowserClient().storage.from("gallery");
-        const upload = await storage.upload(storagePath, file, { contentType: file.type, upsert: false });
-        if (upload.error) throw upload.error;
-        imageUrl = storage.getPublicUrl(storagePath).data.publicUrl;
-      }
-      if (!imageUrl) throw new Error("Add an image URL or upload an image");
-      const payload = { ...galleryForm, image_url: imageUrl, ...(storagePath ? { storage_path: storagePath } : {}), display_order: Number(galleryForm.display_order) };
-      if (editingGallery) await updateAdminRecord("gallery_items", editingGallery, payload);
-      else await createAdminRecord("gallery_items", payload);
-      setEditingGallery("");
-      setGalleryForm({ slug: "", image_url: "", alt_text: "", caption: "", display_order: "0", published: true });
-      await refresh();
-    } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : "Gallery item could not be saved");
-    }
-  }
-  return <section><p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-deep">Brand and site</p><h2 className="mt-3 text-4xl">Content</h2><div className="mt-8 grid gap-6 lg:grid-cols-2"><form onSubmit={saveProfile} className="grid gap-3 rounded-[1.5rem] bg-surface p-6"><h3 className="font-heading text-2xl">Business profile</h3>{(["business_name", "beautician_name", "tagline", "contact_email", "contact_phone", "location"] as const).map((field) => <input key={field} value={profileForm[field] ?? ""} onChange={(event) => setProfileForm({ ...profileForm, [field]: event.target.value })} placeholder={field.replaceAll("_", " ")} className="h-10 rounded-xl border border-line bg-background px-3 text-sm" />)}<textarea value={profileForm.about_body ?? ""} onChange={(event) => setProfileForm({ ...profileForm, about_body: event.target.value })} placeholder="About body" rows={4} className="rounded-xl border border-line bg-background px-3 py-3 text-sm" /><button className="h-10 rounded-full bg-foreground text-xs font-semibold text-white">Save profile</button></form><form onSubmit={saveSettings} className="grid h-fit gap-3 rounded-[1.5rem] bg-surface p-6"><h3 className="font-heading text-2xl">Booking settings</h3><input value={settingsForm.timezone} onChange={(event) => setSettingsForm({ ...settingsForm, timezone: event.target.value })} placeholder="Timezone" className="h-10 rounded-xl border border-line bg-background px-3 text-sm" /><input type="number" value={settingsForm.slot_interval_minutes} onChange={(event) => setSettingsForm({ ...settingsForm, slot_interval_minutes: Number(event.target.value) })} placeholder="Slot interval minutes" className="h-10 rounded-xl border border-line bg-background px-3 text-sm" /><input type="number" value={settingsForm.cancellation_notice_hours} onChange={(event) => setSettingsForm({ ...settingsForm, cancellation_notice_hours: Number(event.target.value) })} placeholder="Cancellation notice hours" className="h-10 rounded-xl border border-line bg-background px-3 text-sm" /><input type="number" value={settingsForm.minimum_booking_notice_minutes} onChange={(event) => setSettingsForm({ ...settingsForm, minimum_booking_notice_minutes: Number(event.target.value) })} placeholder="Minimum booking notice" className="h-10 rounded-xl border border-line bg-background px-3 text-sm" /><button className="h-10 rounded-full bg-foreground text-xs font-semibold text-white">Save settings</button></form></div><div className="mt-8 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]"><form onSubmit={saveGallery} className="grid h-fit gap-3 rounded-[1.5rem] bg-surface p-6"><h3 className="font-heading text-2xl">Gallery item</h3><input value={galleryForm.slug} onChange={(event) => setGalleryForm({ ...galleryForm, slug: event.target.value })} placeholder="Slug" required className="h-10 rounded-xl border border-line bg-background px-3 text-sm" /><input value={galleryForm.image_url} onChange={(event) => setGalleryForm({ ...galleryForm, image_url: event.target.value })} placeholder="Image URL" required className="h-10 rounded-xl border border-line bg-background px-3 text-sm" /><input value={galleryForm.alt_text} onChange={(event) => setGalleryForm({ ...galleryForm, alt_text: event.target.value })} placeholder="Alt text" required className="h-10 rounded-xl border border-line bg-background px-3 text-sm" /><input value={galleryForm.caption} onChange={(event) => setGalleryForm({ ...galleryForm, caption: event.target.value })} placeholder="Caption" className="h-10 rounded-xl border border-line bg-background px-3 text-sm" /><button className="h-10 rounded-full bg-foreground text-xs font-semibold text-white">{editingGallery ? "Save gallery item" : "Add gallery item"}</button></form><div className="space-y-3">{gallery.map((item) => <div key={item.id} className="flex items-center justify-between gap-4 rounded-2xl border border-line bg-white p-5"><div><p className="font-semibold">{item.caption || item.slug}</p><p className="mt-1 text-xs text-foreground/60">{item.published ? "Published" : "Hidden"}</p></div><div className="flex gap-2"><button type="button" onClick={() => { setEditingGallery(item.id); setGalleryForm({ slug: item.slug, image_url: item.image_url ?? "", alt_text: item.alt_text, caption: item.caption ?? "", display_order: String(item.display_order), published: item.published }); }} className="rounded-full border border-line px-3 py-2 text-xs font-semibold">Edit</button><button type="button" onClick={async () => { await deleteAdminRecord("gallery_items", item.id); await refresh(); }} className="rounded-full px-3 py-2 text-xs font-semibold text-brand-deep">Delete</button></div></div>)}</div></div><PanelMessage error={error} message="" /></section>;
 }

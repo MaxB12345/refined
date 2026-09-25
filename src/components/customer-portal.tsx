@@ -14,6 +14,7 @@ import {
 } from "@/lib/customer-api";
 import { formatLondonDate, formatLondonTime, formatPrice } from "@/lib/date-format";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { AppointmentListSkeleton } from "@/components/ui/loading";
 
 function isUpcoming(appointment: CustomerAppointment) {
   return appointment.status === "confirmed" && new Date(appointment.starts_at).getTime() > Date.now();
@@ -102,7 +103,7 @@ export function CustomerPortal() {
   const visibleAppointments = appointments.filter((appointment) => view === "upcoming" ? isUpcoming(appointment) : !isUpcoming(appointment));
 
   if (loading) {
-    return <p className="rounded-2xl bg-surface px-5 py-6 text-sm text-foreground/65">Loading your appointments...</p>;
+    return <AppointmentListSkeleton />;
   }
 
   return (

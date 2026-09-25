@@ -5,13 +5,14 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { fetchAvailability, type AvailabilitySlot } from "@/lib/booking-api";
+import { AppointmentDetailSkeleton, SlotSkeleton } from "@/components/ui/loading";
 import {
   cancelCustomerAppointment,
   getCustomerAppointments,
   rescheduleCustomerAppointment,
   type CustomerAppointment,
 } from "@/lib/customer-api";
-import { formatLondonDate, formatLondonTime, formatPrice, londonDateInput, londonToday } from "@/lib/date-format";
+import { formatLondonDate, formatLondonTime, formatPrice, londonDateInput, londonTimeInput, londonToday } from "@/lib/date-format";
 
 function canChangeAppointment(appointment: CustomerAppointment) {
   return appointment.status === "confirmed" && new Date(appointment.starts_at).getTime() > Date.now();
@@ -103,7 +104,7 @@ export function CustomerAppointmentDetail({ appointmentId }: { appointmentId: st
     setBusy(true);
     setError("");
     try {
-      await rescheduleCustomerAppointment(appointment.id, selectedDate, formatLondonTime(selectedSlot.starts_at));
+      await rescheduleCustomerAppointment(appointment.id, selectedDate, londonTimeInput(selectedSlot.starts_at));
       router.push("/account");
       router.refresh();
     } catch (requestError: unknown) {
@@ -112,7 +113,7 @@ export function CustomerAppointmentDetail({ appointmentId }: { appointmentId: st
     }
   }
 
-  if (loading) return <main className="mx-auto min-h-screen max-w-3xl px-6 py-16 text-sm text-foreground/65">Loading appointment...</main>;
+  if (loading) return <AppointmentDetailSkeleton />;
   if (!appointment) return <main className="mx-auto min-h-screen max-w-3xl px-6 py-16"><p role="alert" className="rounded-2xl bg-surface px-5 py-4 text-sm">{error || "Appointment not found"}</p><Link href="/account" className="mt-6 inline-flex text-sm font-semibold underline decoration-brand underline-offset-4">Back to appointments</Link></main>;
 
   const canChange = canChangeAppointment(appointment);
@@ -132,7 +133,7 @@ export function CustomerAppointmentDetail({ appointmentId }: { appointmentId: st
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-deep">Reschedule</p>
             <h2 className="mt-3 font-heading text-3xl">Choose a new time.</h2>
             <label className="mt-6 block max-w-xs text-sm font-semibold" htmlFor="reschedule-date">New date<input id="reschedule-date" type="date" min={londonToday()} value={selectedDate} onChange={(event) => chooseDate(event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-line bg-background px-4 outline-none focus:border-brand" /></label>
-            {loadingSlots && <p className="mt-5 text-sm text-foreground/65">Checking availability...</p>}
+            {loadingSlots && <SlotSkeleton />}
             {!loadingSlots && selectedDate && !slots.length && <p className="mt-5 text-sm text-foreground/65">No alternative times are available on this date.</p>}
             <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {slots.map((slot) => <button key={slot.starts_at} type="button" onClick={() => setSelectedSlot(slot)} className={`min-h-11 rounded-xl border px-3 text-sm font-semibold ${selectedSlot?.starts_at === slot.starts_at ? "border-foreground bg-foreground text-white" : "border-line hover:border-brand"}`}>{formatLondonTime(slot.starts_at)}</button>)}

@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { Spinner } from "@/components/ui/loading";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type PasswordlessLoginFormProps = {
@@ -38,7 +39,7 @@ export function PasswordlessLoginForm({ mode }: PasswordlessLoginFormProps) {
     } else {
       setEmail(normalizedEmail);
       setCodeRequested(true);
-      setMessage("Check your email for the six-digit sign-in code.");
+      setMessage("Check your email for your sign-in code.");
     }
 
     setBusy(false);
@@ -99,8 +100,9 @@ export function PasswordlessLoginForm({ mode }: PasswordlessLoginFormProps) {
         <button
           type="submit"
           disabled={busy}
-          className="min-h-12 w-full rounded-full bg-foreground px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:cursor-wait disabled:opacity-60"
+          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:cursor-wait disabled:opacity-60"
         >
+          {busy && <Spinner />}
           {busy ? "Checking code..." : "Continue"}
         </button>
         <button
@@ -141,8 +143,9 @@ export function PasswordlessLoginForm({ mode }: PasswordlessLoginFormProps) {
       <button
         type="submit"
         disabled={busy}
-        className="min-h-12 w-full rounded-full bg-foreground px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:cursor-wait disabled:opacity-60"
+        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:cursor-wait disabled:opacity-60"
       >
+        {busy && <Spinner />}
         {busy ? "Sending code..." : "Email me a sign-in code"}
       </button>
     </form>

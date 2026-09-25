@@ -14,6 +14,8 @@ export type AdminAppointment = {
   duration_minutes: number;
   customer_note: string | null;
   admin_note: string | null;
+  cancellation_reason?: string | null;
+  confirmation_email_error?: string | null;
 };
 
 export type AdminTreatment = {
@@ -48,6 +50,7 @@ export type AdminCustomer = {
   email: string;
   phone: string;
   deleted_at: string | null;
+  created_at?: string;
 };
 
 export type AdminProfile = {

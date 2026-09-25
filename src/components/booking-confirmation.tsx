@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { fetchConfirmation, type BookingConfirmation } from "@/lib/booking-api";
+import { ConfirmationSkeleton } from "@/components/ui/loading";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -57,7 +58,7 @@ export function BookingConfirmation({ token }: { token: string }) {
   }
 
   if (!appointment) {
-    return <main className="flex min-h-screen items-center justify-center px-6 py-16 text-sm text-foreground/60">Loading your confirmation...</main>;
+    return <ConfirmationSkeleton />;
   }
 
   return (

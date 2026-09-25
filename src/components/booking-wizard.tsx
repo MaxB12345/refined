@@ -4,7 +4,9 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { createBooking, fetchAvailability, type AvailabilitySlot } from "@/lib/booking-api";
+import { londonTimeInput } from "@/lib/date-format";
 import type { PublicTreatment } from "@/lib/public-content";
+import { SlotSkeleton, Spinner } from "@/components/ui/loading";
 
 type BookingWizardProps = {
   treatments: PublicTreatment[];
@@ -20,6 +22,16 @@ function londonTime(value: string) {
     minute: "2-digit",
     timeZone: "Europe/London",
   }).format(new Date(value));
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${value}T00:00:00Z`));
 }
 
 function formatPrice(pricePence: number) {
@@ -44,11 +56,20 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const availabilityRequest = useRef<AbortController | null>(null);
+  const wizardTop = useRef<HTMLDivElement>(null);
 
   const selectedTreatment = treatments.find((treatment) => treatment.id === treatmentId);
   const minimumDate = londonToday();
 
   useEffect(() => () => availabilityRequest.current?.abort(), []);
+
+  useEffect(() => {
+    // On narrow screens the step controls sit far below the next step's heading.
+    const top = wizardTop.current;
+    if (top && top.getBoundingClientRect().top < 0) {
+      top.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [step]);
 
   function loadSlots(id: string, date: string) {
     availabilityRequest.current?.abort();
@@ -117,7 +138,7 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
       const appointment = await createBooking({
         treatmentId: selectedTreatment.id,
         date: selectedDate,
-        startTime: londonTime(selectedSlot.starts_at),
+        startTime: londonTimeInput(selectedSlot.starts_at),
         customerName,
         customerEmail,
         customerPhone,
@@ -130,11 +151,11 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_18rem]">
+    <div ref={wizardTop} className="grid scroll-mt-6 gap-8 lg:grid-cols-[1fr_18rem]">
       <section className="rounded-[2rem] border border-line bg-white p-6 sm:p-9">
         <div className="mb-9 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-foreground/50">
           {["Treatment", "Date & time", "Your details"].map((label, index) => (
-            <div key={label} className="flex flex-1 items-center gap-2">
+            <div key={label} className={`flex items-center gap-2 ${index < 2 ? "flex-1" : ""}`}>
               <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.65rem] ${step >= index + 1 ? "bg-foreground text-white" : "bg-surface text-foreground/50"}`}>
                 {index + 1}
               </span>
@@ -156,7 +177,7 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
                   onClick={() => chooseTreatment(treatment.id)}
                   className={`rounded-2xl border p-5 text-left transition-colors ${treatmentId === treatment.id ? "border-foreground bg-surface" : "border-line hover:border-brand"}`}
                 >
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-baseline justify-between gap-4">
                     <span className="font-heading text-2xl">{treatment.name}</span>
                     <span className="shrink-0 text-sm font-semibold">{formatPrice(treatment.price_pence)}</span>
                   </div>
@@ -193,7 +214,7 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
             <div className="mt-8">
               <p className="text-sm font-semibold">Available times</p>
               {!selectedDate && <p className="mt-3 text-sm text-foreground/60">Choose a date to see available times.</p>}
-              {selectedDate && loadingSlots && <p className="mt-3 text-sm text-foreground/60">Checking availability...</p>}
+              {selectedDate && loadingSlots && <SlotSkeleton />}
               {selectedDate && !loadingSlots && !slots.length && <p className="mt-3 text-sm text-foreground/60">There are no available times on this date. Try another day.</p>}
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {slots.map((slot) => (
@@ -235,7 +256,8 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
             </div>
             <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row">
               <button type="button" onClick={() => setStep(2)} className="min-h-12 rounded-full border border-line px-6 text-sm font-semibold hover:bg-surface">Back</button>
-              <button type="submit" disabled={submitting} className="min-h-12 rounded-full bg-foreground px-6 text-sm font-semibold text-white hover:bg-brand-deep disabled:cursor-wait disabled:opacity-60">
+              <button type="submit" disabled={submitting} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-foreground px-6 text-sm font-semibold text-white hover:bg-brand-deep disabled:cursor-wait disabled:opacity-60">
+                {submitting && <Spinner />}
                 {submitting ? "Confirming appointment..." : "Confirm appointment"}
               </button>
             </div>
@@ -250,7 +272,7 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
         <div className="mt-6 border-t border-line pt-5">
           <p className="font-heading text-2xl">{selectedTreatment?.name ?? "Choose a treatment"}</p>
           {selectedTreatment && <p className="mt-2 text-sm text-foreground/65">{selectedTreatment.duration_minutes} minutes · {formatPrice(selectedTreatment.price_pence)}</p>}
-          {selectedDate && <p className="mt-5 border-t border-line pt-5 text-sm font-semibold">{selectedDate}</p>}
+          {selectedDate && <p className="mt-5 border-t border-line pt-5 text-sm font-semibold">{formatDate(selectedDate)}</p>}
           {selectedSlot && <p className="mt-2 text-sm text-foreground/65">{londonTime(selectedSlot.starts_at)} in the UK</p>}
         </div>
         <p className="mt-8 text-xs leading-5 text-foreground/55">Your time is held only once the appointment has been confirmed.</p>

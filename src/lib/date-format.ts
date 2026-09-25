@@ -16,6 +16,16 @@ export function formatLondonTime(value: string) {
   }).format(new Date(value));
 }
 
+/** Zero-padded 24-hour "HH:MM", the format the booking APIs validate (unlike "9:30" for display). */
+export function londonTimeInput(value: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: "Europe/London",
+  }).format(new Date(value));
+}
+
 export function londonDateInput(value: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date(value));
 }
