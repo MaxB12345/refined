@@ -1,5 +1,5 @@
 -- Safe-to-edit local and first-deployment content.
--- The admin dashboard will manage these records after Section 9.
+-- The admin dashboard manages these records once deployed.
 
 insert into public.business_settings (
   id,

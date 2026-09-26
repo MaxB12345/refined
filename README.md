@@ -34,7 +34,7 @@ npx wrangler login
 npx wrangler r2 bucket create sculpted-by-ruby-opennext-cache
 ```
 
-Set the three public values in the Cloudflare build environment and Worker
+Set the four public values in the Cloudflare build environment and Worker
 variables, then run:
 
 ```bash
@@ -50,9 +50,10 @@ browser assets:
 - `NEXT_PUBLIC_SITE_URL`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
 
 The Worker also needs the values at runtime for dynamic server-rendered pages.
-Do not put service-role, Resend, or Meta credentials in these variables.
+Do not put service-role or Resend credentials in these variables.
 
 ## Supabase database
 
@@ -98,7 +99,7 @@ site URL and redirect allow-list to include `/account` and `/admin`.
 
 ## Booking engine
 
-The booking migration exposes only the operations needed by the next backend
+The booking migrations expose these database operations to the Edge Functions
 layer:
 
 - `get_available_slots` is safe for public availability lookup.
@@ -159,25 +160,25 @@ customer deletion anonymises historical data.
 
 ## Notifications
 
-Booking creation attempts confirmation delivery through Resend and the Meta
-WhatsApp Cloud API from the Edge Functions only. Configure the production
-secrets in Supabase, never in the browser:
+Booking creation sends a confirmation email through Resend from the Edge
+Functions only. Configure the production secrets in Supabase, never in the
+browser:
 
 ```bash
 npx supabase secrets set \
   RESEND_API_KEY=your-resend-key \
-  RESEND_FROM_EMAIL="Sculpted by Ruby <bookings@example.com>" \
-  PUBLIC_SITE_URL=https://your-domain.example \
-  WHATSAPP_ACCESS_TOKEN=your-meta-token \
-  WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id \
-  WHATSAPP_TEMPLATE_NAME=sculpted_by_ruby_booking_confirmation \
-  WHATSAPP_TEMPLATE_LANGUAGE=en_GB
+  RESEND_FROM_EMAIL="Sculpted by Ruby <bookings@sculptedbyruby.uk>" \
+  PUBLIC_SITE_URL=https://sculptedbyruby.uk \
+  TURNSTILE_SECRET_KEY=your-turnstile-secret-key
 ```
 
-The WhatsApp template must be approved in Meta and accept seven body text
-parameters: customer name, treatment, date, time, duration, price, and the
-confirmation URL. A notification failure does not roll back a valid booking;
-the attempt result is stored on the appointment for admin visibility.
+Public bookings require a Cloudflare Turnstile token. Create a Turnstile widget
+for the production domain; its site key is `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and
+its secret key is `TURNSTILE_SECRET_KEY`. Bookings are rejected while the secret
+is missing. For local development, use Cloudflare's test keys, which always pass.
+
+An email failure does not roll back a valid booking; the attempt result is
+stored on the appointment for admin visibility.
 
 ## Production checklist
 
@@ -185,8 +186,8 @@ the attempt result is stored on the appointment for admin visibility.
 - Configure Supabase Auth SMTP and copy the OTP template from `supabase/templates/magic_link.html`.
 - Create the beautician Auth user and insert its UUID into `public.admin_users`.
 - Verify the `gallery` Storage bucket and its admin policies.
-- Set Resend and Meta secrets in Supabase Edge Functions.
-- Verify the Resend sender domain and Meta WhatsApp template.
+- Set Resend and Turnstile secrets in Supabase Edge Functions.
+- Verify the Resend sender domain.
 - Run one public booking, customer portal, admin CRUD, cancellation, and rescheduling smoke test.
 - Test a booking conflict and the 24-hour cancellation boundary.
 - Confirm customer data is not returned by anonymous REST requests.

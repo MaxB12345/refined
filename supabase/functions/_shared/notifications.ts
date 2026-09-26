@@ -1,7 +1,6 @@
 export type BookingNotificationInput = {
   customerName: string;
   customerEmail: string;
-  customerPhone: string;
   confirmationToken: string;
   startsAt: string;
   treatmentName: string;
@@ -12,8 +11,6 @@ export type BookingNotificationInput = {
 export type NotificationResult = {
   emailSentAt: string | null;
   emailError: string | null;
-  whatsappSentAt: string | null;
-  whatsappError: string | null;
 };
 
 function escapeHtml(value: string) {
@@ -28,7 +25,7 @@ function escapeHtml(value: string) {
 }
 
 function siteUrl() {
-  return (Deno.env.get("PUBLIC_SITE_URL") ?? Deno.env.get("NEXT_PUBLIC_SITE_URL") ?? "https://sculptedbyruby.example").replace(/\/$/, "");
+  return (Deno.env.get("PUBLIC_SITE_URL") ?? Deno.env.get("NEXT_PUBLIC_SITE_URL") ?? "https://sculptedbyruby.uk").replace(/\/$/, "");
 }
 
 function formatDate(value: string) {
@@ -97,61 +94,14 @@ async function sendEmail(input: BookingNotificationInput) {
   }
 }
 
-async function sendWhatsApp(input: BookingNotificationInput) {
-  const accessToken = Deno.env.get("WHATSAPP_ACCESS_TOKEN");
-  const phoneNumberId = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID");
-  if (!accessToken || !phoneNumberId) return { sentAt: null, error: "WhatsApp is not configured" };
-
-  const recipient = input.customerPhone.replace(/\D/g, "");
-  if (recipient.length < 8) return { sentAt: null, error: "Customer phone is not in a usable format" };
-
-  const version = Deno.env.get("WHATSAPP_API_VERSION") ?? "v23.0";
-  const templateName = Deno.env.get("WHATSAPP_TEMPLATE_NAME") ?? "sculpted_by_ruby_booking_confirmation";
-  const language = Deno.env.get("WHATSAPP_TEMPLATE_LANGUAGE") ?? "en_GB";
-  const confirmationUrl = `${siteUrl()}/booking/confirmation/${encodeURIComponent(input.confirmationToken)}`;
-  const parameters = [
-    input.customerName,
-    input.treatmentName,
-    formatDate(input.startsAt),
-    formatTime(input.startsAt),
-    `${input.durationMinutes} minutes`,
-    formatPrice(input.pricePence),
-    confirmationUrl,
-  ].map((text) => ({ type: "text", text }));
-
-  try {
-    const response = await request(`https://graph.facebook.com/${version}/${phoneNumberId}/messages`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to: recipient,
-        type: "template",
-        template: { name: templateName, language: { code: language }, components: [{ type: "body", parameters }] },
-      }),
-    });
-    if (!response.ok) return { sentAt: null, error: `WhatsApp returned HTTP ${response.status}` };
-    return { sentAt: new Date().toISOString(), error: null };
-  } catch {
-    return { sentAt: null, error: "WhatsApp request failed" };
-  }
-}
-
 export async function sendBookingNotifications(input: BookingNotificationInput): Promise<NotificationResult> {
-  const [email, whatsapp] = await Promise.all([sendEmail(input), sendWhatsApp(input)]);
-  return {
-    emailSentAt: email.sentAt,
-    emailError: email.error,
-    whatsappSentAt: whatsapp.sentAt,
-    whatsappError: whatsapp.error,
-  };
+  const email = await sendEmail(input);
+  return { emailSentAt: email.sentAt, emailError: email.error };
 }
 
 export function notificationColumns(result: NotificationResult) {
   return {
     confirmation_email_sent_at: result.emailSentAt,
     confirmation_email_error: result.emailError,
-    confirmation_whatsapp_sent_at: result.whatsappSentAt,
-    confirmation_whatsapp_error: result.whatsappError,
   };
 }

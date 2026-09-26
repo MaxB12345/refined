@@ -1,3 +1,5 @@
+import { siteConfig } from "@/lib/site-config";
+
 type PublicEnvironment = {
   supabaseUrl: string;
   supabasePublishableKey: string;
@@ -22,8 +24,15 @@ export function getPublicEnvironment(): PublicEnvironment {
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
     ),
-    siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://sculptedbyruby.example",
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL || siteConfig.url,
   };
+}
+
+export function getTurnstileSiteKey() {
+  return required(
+    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+    "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+  );
 }
 
 export function hasPublicEnvironment() {

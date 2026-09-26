@@ -21,8 +21,8 @@ values ('auth-user-uuid', 'Ruby');
 
 Configure Auth Site URL and redirect URLs for:
 
-- `https://your-domain.example/account`
-- `https://your-domain.example/admin`
+- `https://sculptedbyruby.uk/account`
+- `https://sculptedbyruby.uk/admin`
 
 Configure SMTP and the Magic Link or OTP template. The local template is at
 `supabase/templates/magic_link.html`.
@@ -34,16 +34,13 @@ Set Edge Function secrets without committing them:
 ```bash
 npx supabase secrets set \
   RESEND_API_KEY=... \
-  RESEND_FROM_EMAIL="Sculpted by Ruby <bookings@your-domain.example>" \
-  PUBLIC_SITE_URL=https://your-domain.example \
-  WHATSAPP_ACCESS_TOKEN=... \
-  WHATSAPP_PHONE_NUMBER_ID=... \
-  WHATSAPP_TEMPLATE_NAME=sculpted_by_ruby_booking_confirmation \
-  WHATSAPP_TEMPLATE_LANGUAGE=en_GB
+  RESEND_FROM_EMAIL="Sculpted by Ruby <bookings@sculptedbyruby.uk>" \
+  PUBLIC_SITE_URL=https://sculptedbyruby.uk \
+  TURNSTILE_SECRET_KEY=...
 ```
 
-The Resend domain must be verified. The WhatsApp template must be approved and
-match the seven body parameters documented in the main README.
+The Resend domain must be verified. The Turnstile widget must list the
+production domain.
 
 ## 3. Cloudflare
 
@@ -58,9 +55,10 @@ Set these public values in the CI build environment and Cloudflare Worker
 variables:
 
 ```text
-NEXT_PUBLIC_SITE_URL=https://your-domain.example
+NEXT_PUBLIC_SITE_URL=https://sculptedbyruby.uk
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=...
 ```
 
 Deploy after the values are available:
@@ -76,7 +74,7 @@ Supabase Auth's allowed URLs.
 ## 4. Smoke Test
 
 - Open the public home and treatments pages.
-- Book a future appointment and confirm the email and WhatsApp messages.
+- Book a future appointment and confirm the email arrives.
 - Sign in as the customer and verify the appointment appears.
 - Verify customer cancellation is rejected inside 24 hours.
 - Verify customer rescheduling updates the slot.

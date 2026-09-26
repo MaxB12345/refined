@@ -26,6 +26,9 @@ const resources = [
 
 type Resource = (typeof resources)[number];
 
+// Must not exceed the project's PostgREST max_rows (Supabase default: 1000).
+const PAGE_SIZE = 1000;
+
 const writableFields: Record<Resource, string[]> = {
   treatments: ["name", "slug", "description", "price_pence", "duration_minutes", "active", "display_order"],
   working_hours: ["day_of_week", "starts_at", "ends_at", "is_enabled"],
@@ -80,20 +83,25 @@ const handler = {
     if (id && !singleton && !uuid(id)) return error("A valid id is required", 400, "invalid_id");
 
     if (req.method === "GET") {
-      let query = ctx.supabase.from(resourceName).select("*").limit(500);
-      if (singleton) query = query.eq("id", true);
-      if (id && !singleton) query = query.eq("id", id);
-      if (resourceName === "appointments") query = query.order("starts_at", { ascending: true });
-      if (resourceName === "treatments" || resourceName === "gallery_items") {
-        query = query.order("display_order", { ascending: true });
-      }
+      const records: Record<string, unknown>[] = [];
+      for (let from = 0; ; from += PAGE_SIZE) {
+        let query = ctx.supabase.from(resourceName).select("*");
+        if (singleton) query = query.eq("id", true);
+        if (id && !singleton) query = query.eq("id", id);
+        if (resourceName === "appointments") query = query.order("starts_at", { ascending: true });
+        if (resourceName === "treatments" || resourceName === "gallery_items") {
+          query = query.order("display_order", { ascending: true });
+        }
 
-      const { data, error: queryError } = await query;
-      if (queryError) {
-        console.error("Admin list failed", queryError);
-        return databaseError();
+        const { data, error: queryError } = await query.order("id").range(from, from + PAGE_SIZE - 1);
+        if (queryError) {
+          console.error("Admin list failed", queryError);
+          return databaseError();
+        }
+        records.push(...data);
+        if (data.length < PAGE_SIZE) break;
       }
-      return json({ resource: resourceName, records: data ?? [] });
+      return json({ resource: resourceName, records });
     }
 
     const payload = await body(req);
@@ -125,7 +133,6 @@ const handler = {
         const notificationResult = await sendBookingNotifications({
           customerName,
           customerEmail,
-          customerPhone,
           confirmationToken: appointment.public_token,
           startsAt: appointment.starts_at,
           treatmentName: appointment.treatment_name,

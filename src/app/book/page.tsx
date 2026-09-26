@@ -1,6 +1,7 @@
 import { BookingWizard } from "@/components/booking-wizard";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { getTurnstileSiteKey } from "@/lib/env";
 import { getPublicTreatments } from "@/lib/public-content";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ export default async function BookPage() {
           </div>
         </section>
         <section className="mx-auto max-w-7xl px-6 py-10 sm:px-10 sm:py-16 lg:px-12">
-          <BookingWizard treatments={treatments} />
+          <BookingWizard treatments={treatments} turnstileSiteKey={getTurnstileSiteKey()} />
         </section>
       </main>
       <SiteFooter />

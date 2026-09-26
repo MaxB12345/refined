@@ -13,6 +13,22 @@ import {
 } from "../_shared/http.ts";
 import { notificationColumns, sendBookingNotifications } from "../_shared/notifications.ts";
 
+async function verifyTurnstile(token: string) {
+  const secret = Deno.env.get("TURNSTILE_SECRET_KEY");
+  if (!secret) throw new Error("TURNSTILE_SECRET_KEY is not configured");
+
+  const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ secret, response: token }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) throw new Error(`Turnstile returned HTTP ${response.status}`);
+
+  const result = await response.json() as { success?: boolean };
+  return result.success === true;
+}
+
 const handler = {
   fetch: withSupabase({ auth: "none" }, async (req, ctx) => {
     if (req.method === "OPTIONS") return options();
@@ -50,6 +66,7 @@ const handler = {
       const customerName = text(payload?.customer_name);
       const customerEmail = text(payload?.customer_email).toLowerCase();
       const customerPhone = text(payload?.customer_phone);
+      const turnstileToken = text(payload?.turnstile_token);
 
       if (
         !uuid(treatmentId) ||
@@ -60,6 +77,15 @@ const handler = {
         customerPhone.length < 5
       ) {
         return error("Valid treatment, date, time, name, email, and phone are required", 400, "invalid_booking");
+      }
+
+      try {
+        if (!turnstileToken || !(await verifyTurnstile(turnstileToken))) {
+          return error("Please complete the security check and try again", 400, "verification_failed");
+        }
+      } catch (verificationError) {
+        console.error("Turnstile verification failed", verificationError);
+        return error("Bookings are temporarily unavailable. Please try again shortly", 503, "verification_unavailable");
       }
 
       const { data, error: bookingError } = await ctx.supabaseAdmin.rpc("book_appointment", {
@@ -85,7 +111,6 @@ const handler = {
       const notificationResult = await sendBookingNotifications({
         customerName,
         customerEmail,
-        customerPhone,
         confirmationToken: booking.public_token,
         startsAt: booking.starts_at,
         treatmentName: booking.treatment_name,

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Manrope, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
+import { siteConfig } from "@/lib/site-config";
+
 const bodyFont = Manrope({
   variable: "--font-body",
   subsets: ["latin"],
@@ -15,16 +17,13 @@ const displayFont = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "https://sculptedbyruby.example",
-  ),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || siteConfig.url),
   title: {
     default: "Sculpted by Ruby | Beauty, thoughtfully tailored",
     template: "%s | Sculpted by Ruby",
   },
-  description:
-    "Thoughtfully tailored beauty treatments by Sculpted by Ruby, with every appointment shaped around you.",
-}; 
+  description: siteConfig.description,
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

@@ -55,6 +55,7 @@ export async function createBooking(input: {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  turnstileToken: string;
 }) {
   const response = await publicApi<BookingResponse>("book", {
     method: "POST",
@@ -65,6 +66,7 @@ export async function createBooking(input: {
       customer_name: input.customerName,
       customer_email: input.customerEmail,
       customer_phone: input.customerPhone,
+      turnstile_token: input.turnstileToken,
     }),
   });
 

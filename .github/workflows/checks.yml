@@ -16,11 +16,10 @@ jobs:
 
       - run: npm ci
 
-      # Repo variables are only set once Cloudflare/Supabase are provisioned (see README).
-      # Placeholders keep PR checks working before that, and are harmless in `npm run build`
-      # because src/lib/public-content.ts falls back to static content when they're missing.
+      # Pages that read Supabase are dynamic, so the build never calls it; placeholders suffice.
       - run: npm run check
         env:
-          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'https://sculptedbyruby.example' }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'https://sculptedbyruby.uk' }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'placeholder-key' }}
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY || 'placeholder-key' }}

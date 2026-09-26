@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { AvailabilityPicker } from "@/components/availability-picker";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 import { createBooking, type AvailabilitySlot } from "@/lib/booking-api";
 import { londonTimeInput } from "@/lib/date-format";
 import type { PublicTreatment } from "@/lib/public-content";
@@ -11,6 +12,7 @@ import { Spinner } from "@/components/ui/loading";
 
 type BookingWizardProps = {
   treatments: PublicTreatment[];
+  turnstileSiteKey: string;
 };
 
 function londonTime(value: string) {
@@ -39,7 +41,7 @@ function formatPrice(pricePence: number) {
   }).format(pricePence / 100);
 }
 
-export function BookingWizard({ treatments }: BookingWizardProps) {
+export function BookingWizard({ treatments, turnstileSiteKey }: BookingWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [treatmentId, setTreatmentId] = useState("");
@@ -52,6 +54,9 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
   const [customerPhone, setCustomerPhone] = useState("");
   // Bumped to reload availability from scratch, e.g. after someone else takes the chosen time.
   const [availabilityVersion, setAvailabilityVersion] = useState(0);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  // Tokens are single-use, so a failed submit remounts the widget to issue a fresh one.
+  const [turnstileVersion, setTurnstileVersion] = useState(0);
   const wizardTop = useRef<HTMLDivElement>(null);
 
   const selectedTreatment = treatments.find((treatment) => treatment.id === treatmentId);
@@ -93,7 +98,7 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
 
   async function submitBooking(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedTreatment || !selectedSlot) return;
+    if (!selectedTreatment || !selectedSlot || !turnstileToken) return;
 
     setSubmitting(true);
     setError("");
@@ -106,11 +111,14 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
         customerName,
         customerEmail,
         customerPhone,
+        turnstileToken,
       });
       router.push(`/booking/confirmation/${appointment.confirmation_token}`);
     } catch (requestError: unknown) {
       const message = requestError instanceof Error ? requestError.message : "The appointment could not be booked";
       setSubmitting(false);
+      setTurnstileToken(null);
+      setTurnstileVersion((version) => version + 1);
       if (/no longer available|not available/i.test(message)) {
         // Someone else got there first: show fresh times, keep the day and their details.
         setSelectedSlot(null);
@@ -203,9 +211,12 @@ export function BookingWizard({ treatments }: BookingWizardProps) {
                 <input id="customer-phone" type="tel" autoComplete="tel" required value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-line bg-background px-4 outline-none focus:border-brand" />
               </label>
             </div>
+            <div className="mt-8">
+              <TurnstileWidget key={turnstileVersion} siteKey={turnstileSiteKey} onToken={setTurnstileToken} />
+            </div>
             <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row">
               <button type="button" onClick={() => setStep(2)} className="min-h-12 rounded-full border border-line px-6 text-sm font-semibold hover:bg-surface">Back</button>
-              <button type="submit" disabled={submitting} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-foreground px-6 text-sm font-semibold text-white hover:bg-brand-deep disabled:cursor-wait disabled:opacity-60">
+              <button type="submit" disabled={submitting || !turnstileToken} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-foreground px-6 text-sm font-semibold text-white hover:bg-brand-deep disabled:cursor-wait disabled:opacity-60">
                 {submitting && <Spinner />}
                 {submitting ? "Confirming appointment..." : "Confirm appointment"}
               </button>
